@@ -1,0 +1,2672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simplex Pivot Explorer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #fafafa;
+      padding: 2rem;
+      color: #1a1a1a;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #028090;
+    }
+    
+    .subtitle {
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 2rem;
+    }
+    
+    .dictionary {
+      background: #f5f5f5;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      line-height: 2;
+      position: relative;
+      min-height: 150px;
+    }
+    
+    .dictionary-animating {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    
+    .dict-column {
+      min-width: 0;
+    }
+    
+    .dict-separator {
+      width: 2px;
+      background: #ddd;
+      height: 100%;
+      align-self: stretch;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideLeft {
+      from { transform: translateX(0); }
+      to { transform: translateX(-100%); }
+    }
+    
+    @keyframes slideFromRight {
+      from { transform: translateX(50px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { background: transparent; }
+      50% { background: #FEF3C7; }
+    }
+    
+    .dict-row.fade-in {
+      animation: fadeIn 0.6s ease-out forwards;
+      opacity: 0;
+    }
+    
+    .dict-row.pulse-highlight {
+      animation: pulse 1s ease-in-out;
+    }
+    
+    .pivot-equation-box {
+      background: #E6F1FB;
+      border: 2px solid #378ADD;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 8px 0;
+    }
+    
+    .objective-tooltip {
+      position: fixed;
+      background: #FEF3C7;
+      border: 3px solid #F59E0B;
+      border-radius: 8px;
+      padding: 12px 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 10000;
+      font-size: 16px;
+      font-weight: 700;
+      color: #92400E;
+      animation: tooltipPulse 0.5s ease-out;
+      white-space: nowrap;
+    }
+    
+    .objective-tooltip::before {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-top: 10px solid #F59E0B;
+    }
+    
+    @keyframes tooltipPulse {
+      0% { transform: scale(0.9); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .highlight-value {
+      background: #FEF3C7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      animation: highlightPulse 2s infinite;
+    }
+    
+    @keyframes highlightPulse {
+      0%, 100% { background: #FEF3C7; }
+      50% { background: #FDE68A; }
+    }
+    
+    .animation-banner {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #378ADD, #5DCAA5);
+      color: white;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      z-index: 2000;
+      animation: bannerSlideIn 0.5s ease-out;
+    }
+    
+    @keyframes bannerSlideIn {
+      from { transform: translateX(-50%) translateY(-100px); opacity: 0; }
+      to { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+    
+    .maximize-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1D9E75;
+      margin-top: 8px;
+      text-align: center;
+      animation: maximizePulse 2s infinite;
+    }
+    
+    @keyframes maximizePulse {
+      0%, 100% { opacity: 0.7; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    
+    .next-step-button {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: linear-gradient(135deg, #F59E0B, #D97706);
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      z-index: 3000;
+      transition: all 0.3s;
+      animation: buttonPulse 2s infinite;
+    }
+    
+    .next-step-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    
+    .next-step-button:active {
+      transform: scale(0.98);
+    }
+    
+    @keyframes buttonPulse {
+      0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+      50% { box-shadow: 0 4px 24px rgba(245, 158, 11, 0.6); }
+    }
+    
+    .transformation-arrow {
+      display: inline-block;
+      color: #378ADD;
+      font-size: 24px;
+      margin: 0 8px;
+      opacity: 0;
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+    
+    .story-section {
+      background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+      border: 2px solid #F59E0B;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .story-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.5rem;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    
+    .story-header:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .story-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #92400E;
+      margin: 0;
+      flex: 1;
+    }
+    
+    .story-icon {
+      font-size: 20px;
+      color: #D97706;
+      transition: transform 0.3s ease;
+    }
+    
+    .story-icon.expanded {
+      transform: rotate(180deg);
+    }
+    
+    .story-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease-out;
+      padding: 0 0.5rem;
+    }
+    
+    .story-content.expanded {
+      max-height: 1000px;
+      padding: 1rem 0.5rem 0.5rem;
+    }
+    
+    .story-content p {
+      color: #78350F;
+      line-height: 1.7;
+      margin: 0.8rem 0;
+    }
+    
+    .story-content strong {
+      color: #92400E;
+    }
+    
+    .story-content .equation-box {
+      background: white;
+      border: 1px solid #F59E0B;
+      border-radius: 6px;
+      padding: 1rem;
+      margin: 1rem 0;
+      font-family: 'Courier New', monospace;
+      font-size: 15px;
+    }
+    
+    .story-content .equation-box div {
+      margin: 0.5rem 0;
+    }
+    
+    .dict-row {
+      color: #1a1a1a;
+      margin: 4px 0;
+    }
+    
+    .dict-row.objective {
+      color: #378ADD;
+      font-weight: 600;
+      font-size: 18px;
+    }
+    
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .knobs-container {
+      display: flex;
+      gap: 3rem;
+      justify-content: center;
+      margin-bottom: 0;
+      flex-wrap: wrap;
+    }
+    
+    .knob-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .knob {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+      border: 4px solid #bbb;
+      position: relative;
+      cursor: grab;
+      transition: all 0.2s;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1), inset 0 -2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .knob:active {
+      cursor: grabbing;
+      transform: scale(0.98);
+    }
+    
+    .knob:not(.disabled):hover {
+      border-color: #378ADD;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.15), inset 0 -2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .knob.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 100%);
+      border-color: #ccc;
+    }
+    
+    .knob.disabled:hover {
+      border-color: #ccc;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1), inset 0 -2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .knob-indicator {
+      position: absolute;
+      width: 6px;
+      height: 45px;
+      background: #378ADD;
+      top: 12px;
+      left: 57px;
+      transform-origin: 50% 48px;
+      border-radius: 3px;
+      transition: transform 0.1s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .knob.disabled .knob-indicator {
+      background: #999;
+    }
+    
+    .knob-dot {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      top: 52px;
+      left: 52px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .knob-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .knob-value {
+      font-size: 24px;
+      font-weight: 600;
+      color: #378ADD;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .knob.disabled .knob-value {
+      color: #999;
+    }
+    
+    .windows-container {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 0;
+    }
+    
+    .speedometer {
+      width: 160px;
+      text-align: center;
+    }
+    
+    .speedometer-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 12px;
+    }
+    
+    .speedometer-gauge {
+      position: relative;
+      width: 160px;
+      height: 80px;
+      margin-bottom: 12px;
+    }
+    
+    .speedometer-value {
+      font-size: 24px;
+      font-weight: 600;
+      color: #1a1a1a;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .speedometer-value.danger {
+      color: #E24B4A;
+      animation: pulse 0.5s infinite alternate;
+    }
+    
+    @keyframes pulse {
+      from { opacity: 1; }
+      to { opacity: 0.6; }
+    }
+    
+    .thermometer-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin: 0 0 2rem 0;
+    }
+    
+    .thermometer-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .thermometer {
+      width: 80px;
+      height: 240px;
+      background: white;
+      border: 3px solid #ddd;
+      border-radius: 40px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .thermometer-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: linear-gradient(to top, #1D9E75, #5DCAA5);
+      transition: height 0.4s ease-out;
+      border-radius: 0 0 37px 37px;
+    }
+    
+    .thermometer-bulb {
+      position: absolute;
+      bottom: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #1D9E75, #5DCAA5);
+      border-radius: 50%;
+      border: 3px solid #ddd;
+      z-index: 1;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .thermometer-value {
+      font-size: 28px;
+      font-weight: 600;
+      color: #1D9E75;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin: 0 0 2rem 0;
+      flex-wrap: wrap;
+    }
+    
+    .action-buttons button {
+      padding: 14px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      border: 2px solid #378ADD;
+      background: white;
+      color: #378ADD;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    
+    .action-buttons button:hover:not(:disabled) {
+      background: #378ADD;
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(55, 138, 221, 0.3);
+    }
+    
+    .action-buttons button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    .action-buttons button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .action-buttons button.secondary {
+      border-color: #666;
+      color: #666;
+    }
+    
+    .action-buttons button.secondary:hover:not(:disabled) {
+      background: #666;
+      color: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .algebra-steps {
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 0 0 2rem 0;
+      display: none;
+      border-left: 4px solid #378ADD;
+    }
+    
+    .algebra-steps.show {
+      display: block;
+    }
+    
+    .algebra-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1a1a1a;
+    }
+    
+    .algebra-step {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #444;
+      margin: 10px 0;
+      line-height: 1.8;
+    }
+    
+    .algebra-step .highlight {
+      color: #378ADD;
+      font-weight: 600;
+    }
+    
+    .algebra-step strong {
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+    
+    .optimal-banner {
+      background: linear-gradient(135deg, #EAF3DE 0%, #C0DD97 100%);
+      color: #3B6D11;
+      border: 3px solid #639922;
+      border-radius: 12px;
+      padding: 3rem;
+      text-align: center;
+      margin: 0;
+      display: none;
+      box-shadow: 0 8px 16px rgba(99, 153, 34, 0.2);
+    }
+    
+    .optimal-banner.show {
+      display: block;
+      animation: slideIn 0.5s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .optimal-banner h2 {
+      font-size: 36px;
+      font-weight: 700;
+      margin: 0 0 12px 0;
+    }
+    
+    .optimal-banner p {
+      font-size: 18px;
+      margin: 0;
+      font-weight: 500;
+    }
+    
+    .hint-box {
+      background: #FEF3C7;
+      border-left: 4px solid #F59E0B;
+      border-radius: 0 8px 8px 0;
+      padding: 16px 20px;
+      margin: 1.5rem 0 2rem 0;
+      font-size: 15px;
+      color: #92400E;
+      line-height: 1.6;
+    }
+    
+    .controls-section {
+      margin: 0 0 2rem 0;
+    }
+    
+    .controls-section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .map-icon {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #378ADD 0%, #1D9E75 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(55, 138, 221, 0.4);
+      transition: all 0.3s;
+      z-index: 1000;
+      border: 3px solid white;
+    }
+    
+    .map-icon:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 16px rgba(55, 138, 221, 0.6);
+    }
+    
+    .map-icon svg {
+      width: 32px;
+      height: 32px;
+      fill: white;
+    }
+    
+    .map-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .map-modal.show {
+      display: flex;
+    }
+    
+    .map-content {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 1200px;
+      height: 85vh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    .map-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 2px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .map-header h2 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    
+    .close-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid #ccc;
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: #666;
+      transition: all 0.2s;
+    }
+    
+    .close-btn:hover {
+      background: #f5f5f5;
+      border-color: #999;
+      transform: scale(1.1);
+    }
+    
+    .map-canvas {
+      flex: 1;
+      overflow: auto;
+      padding: 2rem;
+      background: linear-gradient(to bottom, #1e3a5f 0%, #2d5a7b 100%);
+      position: relative;
+    }
+    
+    .map-svg {
+      width: 100%;
+      min-height: 600px;
+    }
+    
+    .path-line {
+      stroke: #5DCAA5;
+      stroke-width: 3;
+      stroke-dasharray: 10, 5;
+      fill: none;
+      opacity: 0.6;
+    }
+    
+    .path-branch {
+      stroke: #85B7EB;
+      stroke-width: 2;
+      stroke-dasharray: 5, 3;
+      fill: none;
+      opacity: 0.4;
+    }
+    
+    .node-circle {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .node-circle.visited {
+      fill: #1D9E75;
+      stroke: #5DCAA5;
+      stroke-width: 3;
+    }
+    
+    .node-circle.current {
+      fill: #F59E0B;
+      stroke: #FBBF24;
+      stroke-width: 4;
+      animation: pulse-node 2s infinite;
+    }
+    
+    .node-circle.future {
+      fill: rgba(133, 183, 235, 0.2);
+      stroke: #85B7EB;
+      stroke-width: 2;
+      opacity: 0.8;
+    }
+    
+    .node-circle:hover {
+      filter: brightness(1.2);
+      cursor: pointer;
+    }
+    
+    @keyframes pulse-node {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .node-detail-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 3000;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .node-detail-modal.show {
+      display: flex;
+    }
+    
+    .node-detail-content {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 900px;
+      max-height: 85vh;
+      overflow: auto;
+      padding: 2rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    
+    .node-detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #ddd;
+    }
+    
+    .node-detail-header h3 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+    
+    .left-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+    
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+    
+    @media (min-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 1.5rem;
+      }
+      
+      h1 {
+        font-size: 24px;
+      }
+      
+      .knobs-container,
+      .windows-container {
+        gap: 2rem;
+      }
+      
+      .knob {
+        width: 100px;
+        height: 100px;
+      }
+      
+      .knob-indicator {
+        height: 38px;
+        left: 47px;
+        transform-origin: 50% 40px;
+      }
+      
+      .knob-dot {
+        top: 42px;
+        left: 42px;
+      }
+    }
+    
+    @media (max-width: 1023px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="map-icon" id="map-icon" title="Open Navigation Map">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/>
+    </svg>
+  </div>
+  
+  <div class="map-modal" id="map-modal">
+    <div class="map-content">
+      <div class="map-header">
+        <h2>🗺️ Navigation Map - Solution Path</h2>
+        <button class="close-btn" id="close-map">✕</button>
+      </div>
+      <div class="map-canvas" id="map-canvas">
+        <svg class="map-svg" id="map-svg"></svg>
+      </div>
+    </div>
+  </div>
+  
+  <div class="node-detail-modal" id="node-detail-modal">
+    <div class="node-detail-content">
+      <div class="node-detail-header">
+        <h3 id="node-detail-title">Step 0 - Starting Point</h3>
+        <button class="close-btn" id="close-node-detail">✕</button>
+      </div>
+      <div id="node-detail-body"></div>
+    </div>
+  </div>
+  
+  <div class="container">
+    <h1>🎮 Simplex Pivot Explorer</h1>
+    <p class="subtitle">Interactive visualization of the simplex algorithm - turn the knobs and watch the magic!</p>
+    
+    <div class="story-section">
+      <div class="story-header" onclick="toggleStory()">
+        <h3 class="story-title">🍋 THE STORY</h3>
+        <span class="story-icon" id="story-icon">▼</span>
+      </div>
+      <div class="story-content" id="story-content">
+        <p>
+          You're running a <strong>lemonade stand</strong> at the summer fair! You can sell two products:
+        </p>
+        <ul style="margin: 0.5rem 0;">
+          <li><strong>Cookies (xC)</strong>: Profit = <strong>$5</strong> per cookie</li>
+          <li><strong>Lemonade (xL)</strong>: Profit = <strong>$3</strong> per glass</li>
+        </ul>
+        
+        <p style="margin-top: 1rem;">
+          But you have <strong>limited resources</strong>:
+        </p>
+        <ul style="margin: 0.5rem 0;">
+          <li><strong>Sugar (w₁)</strong>: You only have 10 cups total. Each cookie uses 2 cups, each lemonade uses 1 cup.</li>
+          <li><strong>Time (w₂)</strong>: You only have 8 hours. Each cookie takes 1 hour, each lemonade takes 1 hour.</li>
+        </ul>
+        
+        <p style="margin-top: 1rem;">
+          <strong>The Goal:</strong> How many lemonades and cookies should you make to <strong>maximize profit</strong>?
+        </p>
+        
+        <div class="equation-box">
+          <div style="color: #378ADD; font-weight: 600; margin-bottom: 0.8rem;">📊 Mathematical Model:</div>
+          <div style="color: #1D9E75; font-weight: 600;">Maximize: z = 5xC + 3xL</div>
+          <div style="margin-top: 0.8rem; color: #666;">Subject to:</div>
+          <div>w₁ = 10 - 2.0xC - 1.0xL  ≥ 0  (sugar constraint)</div>
+          <div>w₂ = 8 - 1.0xC - 1.0xL  ≥ 0  (time constraint)</div>
+          <div style="margin-top: 0.5rem; color: #666;">xC, xL ≥ 0</div>
+        </div>
+        
+        <p>
+          The <strong>knobs</strong> (xC, xL) are your decisions. The <strong>speedometers</strong> (w₁, w₂) show remaining resources. The <strong>thermometer</strong> shows your total profit!
+        </p>
+        
+        <p style="margin-top: 1rem; font-style: italic; color: #92400E;">
+          💡 The Simplex Algorithm finds the optimal solution by intelligently moving between corner points of the feasible region until profit can't be improved further.
+        </p>
+      </div>
+    </div>
+    
+    <div class="dictionary" id="dictionary"></div>
+    
+    <div class="hint-box" id="hint">
+      <strong>💡 Try this:</strong> Turn the control knobs to see how the basic variables (speedometers) and objective (thermometer) respond. Notice which knob increases profit faster!
+    </div>
+    
+    <div class="main-grid">
+      <div class="left-panel">
+        <div class="controls-section">
+          <div class="section-title">🎛️ Control Knobs (Non-Basic Variables)</div>
+          <div class="knobs-container" id="knobs-container"></div>
+        </div>
+        
+        <div class="controls-section">
+          <div class="section-title">📊 Speedometer Windows (Basic Variables - Constrained)</div>
+          <div class="windows-container" id="windows-container"></div>
+        </div>
+      </div>
+      
+      <div class="right-panel">
+        <div class="thermometer-container">
+          <div class="thermometer-label">🌡️ Objective Thermometer (Profit)</div>
+          <div class="thermometer">
+            <div class="thermometer-fill" id="thermometer-fill" style="height: 0%"></div>
+            <div class="thermometer-bulb"></div>
+          </div>
+          <div class="thermometer-value" id="value-z">$0</div>
+          <div class="maximize-label">⬆️ Maximize this!</div>
+        </div>
+        
+        <div class="action-buttons">
+          <button id="pivot-btn">Perform Pivot</button>
+          <button id="reset-btn" class="secondary">Reset to Start</button>
+        </div>
+        
+        <div class="algebra-steps" id="algebra">
+          <div class="algebra-title">📝 Pivot Algebra Steps:</div>
+          <div id="algebra-content"></div>
+        </div>
+        
+        <div class="optimal-banner" id="optimal">
+          <h2>🎉 OPTIMAL SOLUTION FOUND! 🎉</h2>
+          <p id="optimal-solution"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Toggle story visibility
+    function toggleStory() {
+      const content = document.getElementById('story-content');
+      const icon = document.getElementById('story-icon');
+      
+      if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        icon.classList.remove('expanded');
+      } else {
+        content.classList.add('expanded');
+        icon.classList.add('expanded');
+      }
+    }
+    
+    // Dictionary state (coefficients)
+    let dict = {
+      z: { const: 0, xC: 5, xL: 3, w1: 0, w2: 0 },
+      w1: { const: 10, xC: -2, xL: -1, w1: 0, w2: 0 },
+      w2: { const: 8, xC: -1, xL: -1, w1: 0, w2: 0 }
+    };
+    
+    // Current variable values
+    let vars = { xC: 0, xL: 0, w1: 0, w2: 0 };
+    
+    // Non-basic and basic variable lists
+    let nonBasic = ['xC', 'xL'];
+    let basic = ['z', 'w1', 'w2'];
+    
+    let pivotCount = 0;
+    const MAX_Z = 30; // for thermometer scale
+    
+    // History tracking for map
+    let history = [];
+    let currentStep = 0;
+    
+    // Initialize history with starting state
+    function initializeHistory() {
+      history = [{
+        step: 0,
+        dict: JSON.parse(JSON.stringify(dict)),
+        basic: [...basic],
+        nonBasic: [...nonBasic],
+        vars: {...vars},
+        prePivotVars: {...vars}, // Same as vars for initial state
+        entering: null,
+        leaving: null,
+        pivotEquation: null,
+        possibleMoves: getPossibleMoves(),
+        parentStep: null
+      }];
+      currentStep = 0;
+    }
+    
+    // Get possible moves (variables with positive coefficients in objective)
+    function getPossibleMoves() {
+      const moves = [];
+      for (let v of nonBasic) {
+        if (dict.z[v] > 0) {
+          moves.push(v);
+        }
+      }
+      return moves;
+    }
+    
+    // Generate hypothetical pivot for a branch (what-if scenario)
+    function generateHypotheticalPivot(state, enteringVar) {
+      const stateDict = state.dict;
+      const stateNonBasic = state.nonBasic;
+      const stateBasic = state.basic;
+      
+      // Find leaving variable (ratio test)
+      let leaving = null;
+      let minRatio = Infinity;
+      for (let bv of stateBasic) {
+        if (bv === 'z') continue;
+        const coeff = stateDict[bv][enteringVar];
+        if (coeff < 0) {
+          const ratio = -stateDict[bv].const / coeff;
+          if (ratio < minRatio) {
+            minRatio = ratio;
+            leaving = bv;
+          }
+        }
+      }
+      
+      if (!leaving) return null;
+      
+      // Perform pivot calculations
+      const pivotCoeff = stateDict[leaving][enteringVar];
+      const newDict = {};
+      
+      // Solve for entering variable
+      newDict[enteringVar] = { const: -stateDict[leaving].const / pivotCoeff };
+      for (let v of [...stateNonBasic, ...stateBasic]) {
+        if (v === enteringVar) continue;
+        if (v === leaving) {
+          newDict[enteringVar][v] = 1 / pivotCoeff;
+        } else {
+          newDict[enteringVar][v] = -(stateDict[leaving][v] || 0) / pivotCoeff;
+        }
+      }
+      
+      // Substitute into other equations
+      const newNonBasicVars = stateNonBasic.filter(v => v !== enteringVar).concat([leaving]);
+      
+      for (let bv of stateBasic) {
+        if (bv === leaving) continue;
+        
+        const oldCoeff = stateDict[bv][enteringVar] || 0;
+        newDict[bv] = { const: stateDict[bv].const + oldCoeff * newDict[enteringVar].const };
+        
+        for (let v of [...stateNonBasic, ...stateBasic]) {
+          if (v === enteringVar) {
+            newDict[bv][v] = 0;
+          } else {
+            newDict[bv][v] = (stateDict[bv][v] || 0) + oldCoeff * (newDict[enteringVar][v] || 0);
+          }
+        }
+      }
+      
+      // Create new basic/nonBasic lists
+      const newNonBasic = stateNonBasic.filter(v => v !== enteringVar).concat([leaving]);
+      const newBasic = stateBasic.filter(v => v !== leaving).concat([enteringVar]);
+      
+      // Get possible moves from this hypothetical state
+      const possibleMoves = [];
+      for (let v of newNonBasic) {
+        if (newDict.z[v] > 0) {
+          possibleMoves.push(v);
+        }
+      }
+      
+      return {
+        dict: newDict,
+        basic: newBasic,
+        nonBasic: newNonBasic,
+        entering: enteringVar,
+        leaving: leaving,
+        possibleMoves: possibleMoves
+      };
+    }
+    
+    // Variable display names
+    const varNames = {
+      xC: 'xC (cookies)',
+      xL: 'xL (lemonade)',
+      w1: 'w₁ (sugar left)',
+      w2: 'w₂ (time left)',
+      z: 'profit'
+    };
+    
+    // Draw speedometer gauge
+    function drawGauge(canvasId, value, max, isNegative) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      const centerX = 80;
+      const centerY = 75;
+      const radius = 65;
+      
+      ctx.clearRect(0, 0, 160, 80);
+      
+      // Background arc
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, Math.PI, 2 * Math.PI);
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 10;
+      ctx.stroke();
+      
+      // Value arc
+      const percent = Math.max(0, Math.min(1, value / max));
+      const angle = Math.PI + (percent * Math.PI);
+      
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, Math.PI, angle);
+      ctx.strokeStyle = isNegative ? '#E24B4A' : '#378ADD';
+      ctx.lineWidth = 10;
+      ctx.stroke();
+      
+      // Center dot
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 6, 0, 2 * Math.PI);
+      ctx.fillStyle = '#333';
+      ctx.fill();
+      
+      // Needle
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      const needleAngle = Math.PI + (percent * Math.PI);
+      ctx.lineTo(
+        centerX + radius * 0.85 * Math.cos(needleAngle),
+        centerY + radius * 0.85 * Math.sin(needleAngle)
+      );
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    
+    // Calculate values from dictionary
+    function calculateValues() {
+      const result = {};
+      
+      for (let basicVar of basic) {
+        let value = dict[basicVar].const;
+        for (let nbVar of nonBasic) {
+          value += dict[basicVar][nbVar] * vars[nbVar];
+        }
+        result[basicVar] = Math.round(value * 10) / 10;
+      }
+      
+      return result;
+    }
+    
+    // Format coefficient for display
+    function formatCoeff(coeff) {
+      const rounded = Math.round(coeff * 10) / 10;
+      if (rounded === 0) return null;
+      const abs = Math.abs(rounded);
+      const sign = rounded > 0 ? '+' : '-';
+      return { sign, value: abs };
+    }
+    
+    // Format equation with proper alignment
+    function formatEquation(lhs, equationObj, allVars) {
+      const constTerm = Math.round(equationObj.const * 100) / 100;
+      let parts = [];
+      
+      // Build each variable term with consistent width
+      allVars.forEach(v => {
+        const coeff = equationObj[v] || 0;
+        const fc = formatCoeff(coeff);
+        if (fc) {
+          const term = `${fc.sign} ${fc.value.toFixed(1)}${v}`;
+          parts.push(term.padEnd(12));
+        } else {
+          parts.push(''.padEnd(12));
+        }
+      });
+      
+      // Format: "lhs = const  term1  term2  term3"
+      // Don't filter - keep all parts for alignment
+      const rhs = parts.join('').trimEnd();
+      return `${lhs.padEnd(4)} = ${constTerm.toString().padStart(6)}  ${rhs}`;
+    }
+    
+    // Animated pivot transformation
+    async function animatePivotTransformation(entering, leaving, newDict, newBasic, newNonBasic, pivotEqText) {
+      const dictEl = document.getElementById('dictionary');
+      
+      // Show attention banner
+      const banner = document.createElement('div');
+      banner.className = 'animation-banner';
+      banner.innerHTML = '👀 Notice how the equations transform!';
+      document.body.appendChild(banner);
+      
+      // Build old and new equations
+      const oldEquations = {};
+      basic.forEach(bv => {
+        const constTerm = Math.round(dict[bv].const * 10) / 10;
+        let eq = `${bv} = ${constTerm}`;
+        for (let nbv of nonBasic) {
+          const fc = formatCoeff(dict[bv][nbv]);
+          if (fc) eq += ` ${fc.sign} ${fc.value}${nbv}`;
+        }
+        oldEquations[bv] = eq;
+      });
+      
+      const newEquations = {};
+      newBasic.forEach(bv => {
+        const constTerm = Math.round(newDict[bv].const * 10) / 10;
+        let eq = `${bv} = ${constTerm}`;
+        for (let nbv of newNonBasic) {
+          const fc = formatCoeff(newDict[bv][nbv]);
+          if (fc) eq += ` ${fc.sign} ${fc.value}${nbv}`;
+        }
+        newEquations[bv] = eq;
+      });
+      
+      // Phase 1: Split into two columns
+      dictEl.classList.add('dictionary-animating');
+      let html = '<div class="dict-column">';
+      basic.forEach(bv => {
+        const cssClass = bv === 'z' ? 'dict-row objective' : 'dict-row';
+        html += `<div class="${cssClass}">${oldEquations[bv]}</div>`;
+      });
+      html += '</div><div class="dict-separator"></div><div class="dict-column" id="dict-right"></div>';
+      dictEl.innerHTML = html;
+      
+      await delay(500); // Let split animation settle
+      await waitForNext(); // User clicks Next to continue
+      
+      // Phase 2: Show pivot equation on right with highlighting and arrow
+      // First, highlight the leaving equation on the left
+      const leavingRow = Array.from(document.querySelectorAll('.dict-column .dict-row'))
+        .find(row => row.textContent.trim().startsWith(leaving));
+      
+      if (leavingRow) {
+        leavingRow.style.background = '#FEF3C7';
+        leavingRow.style.transition = 'background 0.3s';
+        await delay(400); // Let highlight appear
+        await waitForNext(); // User clicks Next to show arrow
+        
+        // Show arrow from left to right
+        const leftRect = leavingRow.getBoundingClientRect();
+        const rightCol = document.getElementById('dict-right');
+        const rightRect = rightCol.getBoundingClientRect();
+        
+        const arrowWidth = rightRect.left - leftRect.right;
+        const arrowY = leftRect.top + leftRect.height / 2;
+        
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        arrow.style.position = 'fixed';
+        arrow.style.left = `${leftRect.right}px`;
+        arrow.style.top = `${arrowY - 10}px`;
+        arrow.style.width = `${arrowWidth}px`;
+        arrow.style.height = '20px';
+        arrow.style.zIndex = '1000';
+        arrow.style.pointerEvents = 'none';
+        
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', '0');
+        line.setAttribute('y1', '10');
+        line.setAttribute('x2', `${arrowWidth - 15}`);
+        line.setAttribute('y2', '10');
+        line.setAttribute('stroke', '#378ADD');
+        line.setAttribute('stroke-width', '3');
+        arrow.appendChild(line);
+        
+        const arrowhead = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        arrowhead.setAttribute('points', `${arrowWidth - 15},3 ${arrowWidth},10 ${arrowWidth - 15},17`);
+        arrowhead.setAttribute('fill', '#378ADD');
+        arrow.appendChild(arrowhead);
+        
+        document.body.appendChild(arrow);
+        
+        await delay(100); // Let arrow appear
+        await waitForNext(); // User clicks Next to continue
+        arrow.remove();
+        leavingRow.style.background = '';
+      }
+      
+      const rightCol = document.getElementById('dict-right');
+      rightCol.innerHTML = `<div class="dict-row pivot-equation-box fade-in">${pivotEqText}</div>`;
+      
+      await delay(700); // Let equation fade in
+      await waitForNext(); // User clicks Next to show other equations
+      
+      // Phase 3: Show other equations on right (unchanged initially)
+      let rightHtml = rightCol.innerHTML;
+      basic.filter(b => b !== leaving).forEach(bv => {
+        const cssClass = bv === 'z' ? 'dict-row objective fade-in' : 'dict-row fade-in';
+        rightHtml += `<div class="${cssClass}" id="eq-${bv}-old" style="animation-delay: 0.2s">${oldEquations[bv]}</div>`;
+      });
+      rightCol.innerHTML = rightHtml;
+      
+      await delay(700); // Let equations fade in
+      await waitForNext(); // User clicks Next to start transformations
+      
+      // Phase 4: Transform each equation one by one
+      for (let bv of basic.filter(b => b !== leaving)) {
+        const eqEl = document.getElementById(`eq-${bv}-old`);
+        if (eqEl) {
+          await waitForNext(); // User clicks Next to transform this equation
+          
+          // Replace with new equation immediately
+          const cssClass = bv === 'z' ? 'dict-row objective fade-in' : 'dict-row fade-in';
+          eqEl.outerHTML = `<div class="${cssClass}">${newEquations[bv]}</div>`;
+          await delay(700); // Let new equation fade in
+        }
+      }
+      
+      await delay(500); // Brief pause
+      
+      // Phase 5: Remove left column and expand right
+      dictEl.classList.remove('dictionary-animating');
+      let finalHtml = '';
+      newBasic.forEach(bv => {
+        const cssClass = bv === 'z' ? 'dict-row objective' : 'dict-row';
+        finalHtml += `<div class="${cssClass}">${newEquations[bv]}</div>`;
+      });
+      dictEl.innerHTML = finalHtml;
+      
+      // Remove banner
+      const bannerEl = document.querySelector('.animation-banner');
+      if (bannerEl) {
+        bannerEl.style.opacity = '0';
+        bannerEl.style.transition = 'opacity 0.5s';
+        setTimeout(() => bannerEl.remove(), 500);
+      }
+    }
+    
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    // Wait for user to click Next button
+    function waitForNext() {
+      return new Promise(resolve => {
+        const btn = document.createElement('button');
+        btn.id = 'next-step-btn';
+        btn.className = 'next-step-button';
+        btn.textContent = '▶️ Next';
+        
+        const handleClick = () => {
+          btn.remove();
+          resolve();
+        };
+        
+        btn.addEventListener('click', handleClick);
+        document.body.appendChild(btn);
+      });
+    }
+    
+    // Show objective value tooltip (before animation)
+    async function showObjectiveTooltip() {
+      const dictEl = document.getElementById('dictionary');
+      const zRow = dictEl.querySelector('.objective');
+      
+      if (!zRow) return;
+      
+      // Get the text and find the constant
+      const text = zRow.textContent;
+      const match = text.match(/z\s*=\s*([-\d.]+)/);
+      
+      if (!match) return;
+      
+      const constValue = match[1];
+      
+      // Highlight the constant in the equation
+      const newHTML = text.replace(
+        new RegExp(`(z\\s*=\\s*)(${constValue.replace('.', '\\.')})`),
+        `$1<span class="highlight-value" id="const-highlight">$2</span>`
+      );
+      zRow.innerHTML = newHTML;
+      
+      await delay(100);
+      
+      // Create tooltip positioned relative to dictionary
+      const tooltip = document.createElement('div');
+      tooltip.id = 'objective-tooltip-box';
+      tooltip.textContent = 'Watch this value grow';
+      tooltip.style.position = 'absolute';
+      tooltip.style.top = '-50px';
+      tooltip.style.left = '50px';
+      tooltip.style.background = '#FEF3C7';
+      tooltip.style.border = '3px solid #F59E0B';
+      tooltip.style.borderRadius = '8px';
+      tooltip.style.padding = '12px 20px';
+      tooltip.style.fontSize = '16px';
+      tooltip.style.fontWeight = '700';
+      tooltip.style.color = '#92400E';
+      tooltip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+      tooltip.style.zIndex = '100';
+      tooltip.style.whiteSpace = 'nowrap';
+      tooltip.style.animation = 'fadeIn 0.5s ease-out';
+      
+      dictEl.appendChild(tooltip);
+      
+      // Wait 3 seconds, then fade out and remove
+      await delay(3000);
+      
+      tooltip.style.opacity = '0';
+      tooltip.style.transition = 'opacity 0.5s';
+      
+      await delay(500);
+      
+      if (tooltip.parentNode) tooltip.remove();
+      
+      // Restore original text
+      const currentZRow = dictEl.querySelector('.objective');
+      if (currentZRow) {
+        currentZRow.textContent = text;
+      }
+    }
+    
+    // Show message for disabled knob
+    function showDisabledKnobMessage(variable) {
+      // Check if a message is already showing
+      const existing = document.getElementById('disabled-knob-message');
+      if (existing) existing.remove();
+      
+      const message = document.createElement('div');
+      message.id = 'disabled-knob-message';
+      message.style.position = 'fixed';
+      message.style.top = '50%';
+      message.style.left = '50%';
+      message.style.transform = 'translate(-50%, -50%)';
+      message.style.background = '#FEF3C7';
+      message.style.border = '3px solid #F59E0B';
+      message.style.borderRadius = '12px';
+      message.style.padding = '24px 32px';
+      message.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)';
+      message.style.zIndex = '10000';
+      message.style.fontSize = '16px';
+      message.style.fontWeight = '600';
+      message.style.color = '#92400E';
+      message.style.textAlign = 'center';
+      message.style.maxWidth = '400px';
+      message.innerHTML = `
+        ⚠️ Can't increase this knob!<br>
+        <span style="font-size: 14px; font-weight: 400; margin-top: 8px; display: block;">
+        It would decrease profit (negative coefficient)
+        </span>
+        <button style="margin-top: 16px; padding: 8px 24px; background: #F59E0B; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="this.parentElement.remove()">Got it!</button>
+      `;
+      
+      document.body.appendChild(message);
+      
+      // Auto-remove after 5 seconds
+      setTimeout(() => {
+        if (message.parentNode) {
+          message.style.opacity = '0';
+          message.style.transition = 'opacity 0.3s';
+          setTimeout(() => message.remove(), 300);
+        }
+      }, 5000);
+    }
+    
+    // Update dictionary display (non-animated)
+    function updateDictionary() {
+      const dictEl = document.getElementById('dictionary');
+      let html = '';
+      
+      for (let bv of basic) {
+        const constTerm = Math.round(dict[bv].const * 10) / 10;
+        let equation = `${bv} = ${constTerm}`;
+        
+        for (let nbv of nonBasic) {
+          const fc = formatCoeff(dict[bv][nbv]);
+          if (fc) {
+            equation += ` ${fc.sign} ${fc.value}${nbv}`;
+          }
+        }
+        
+        const cssClass = bv === 'z' ? 'dict-row objective' : 'dict-row';
+        html += `<div class="${cssClass}">${equation}</div>`;
+      }
+      
+      dictEl.innerHTML = html;
+    }
+    
+    // Update all displays
+    function updateDisplays() {
+      const values = calculateValues();
+      
+      // Update knob displays
+      nonBasic.forEach(v => {
+        const knobEl = document.getElementById(`knob-${v}`);
+        if (!knobEl) return;
+        
+        const indicator = knobEl.querySelector('.knob-indicator');
+        const angle = (vars[v] / 10) * 270; // 0 to 270 degrees for 0 to 10
+        indicator.style.transform = `rotate(${angle}deg)`;
+        
+        const valueEl = document.getElementById(`value-${v}`);
+        if (valueEl) valueEl.textContent = vars[v].toFixed(1);
+        
+        // Grey out if coefficient is non-positive
+        const coeff = dict.z[v];
+        if (coeff <= 0) {
+          knobEl.classList.add('disabled');
+        } else {
+          knobEl.classList.remove('disabled');
+        }
+      });
+      
+      // Update speedometers
+      basic.filter(b => b !== 'z').forEach(bv => {
+        const maxVal = dict[bv].const;
+        const currentVal = values[bv];
+        drawGauge(`gauge-${bv}`, currentVal, maxVal, currentVal < 0);
+        
+        const valueEl = document.getElementById(`value-${bv}`);
+        if (valueEl) {
+          valueEl.textContent = currentVal.toFixed(1);
+          valueEl.classList.toggle('danger', currentVal < 0.5);
+        }
+      });
+      
+      // Update thermometer
+      const zPercent = Math.max(0, Math.min(100, (values.z / MAX_Z) * 100));
+      document.getElementById('thermometer-fill').style.height = zPercent + '%';
+      document.getElementById('value-z').textContent = '$' + Math.round(values.z);
+      
+      // Update pivot button
+      updatePivotButton();
+      
+      // Check if optimal
+      checkOptimal();
+    }
+    
+    // Update pivot button text
+    function updatePivotButton() {
+      let entering = null;
+      let maxCoeff = 0;
+      
+      for (let v of nonBasic) {
+        if (dict.z[v] > maxCoeff) {
+          maxCoeff = dict.z[v];
+          entering = v;
+        }
+      }
+      
+      let leaving = null;
+      let minRatio = Infinity;
+      
+      if (entering) {
+        for (let bv of basic) {
+          if (bv === 'z') continue;
+          const coeff = dict[bv][entering];
+          if (coeff < 0) {
+            const ratio = -dict[bv].const / coeff;
+            if (ratio < minRatio) {
+              minRatio = ratio;
+              leaving = bv;
+            }
+          }
+        }
+      }
+      
+      const btn = document.getElementById('pivot-btn');
+      if (entering && leaving) {
+        btn.textContent = `Perform Pivot (enter: ${entering}, leave: ${leaving})`;
+        btn.disabled = false;
+      } else {
+        btn.textContent = 'Perform Pivot';
+        btn.disabled = true;
+      }
+    }
+    
+    // Check if optimal
+    function checkOptimal() {
+      const allNonPositive = nonBasic.every(v => dict.z[v] <= 0);
+      
+      if (allNonPositive) {
+        const values = calculateValues();
+        const varList = [];
+        
+        nonBasic.forEach(v => {
+          varList.push(`${v} = ${vars[v].toFixed(1)}`);
+        });
+        
+        basic.filter(b => b !== 'z').forEach(v => {
+          varList.push(`${v} = ${values[v].toFixed(1)}`);
+        });
+        
+        document.getElementById('optimal-solution').textContent = 
+          `Profit = $${Math.round(values.z)} at ${varList.join(', ')}`;
+        document.getElementById('optimal').classList.add('show');
+        document.getElementById('hint').style.display = 'none';
+      } else {
+        document.getElementById('optimal').classList.remove('show');
+      }
+    }
+    
+    // Perform pivot
+    async function performPivot() {
+      // Find entering variable
+      let entering = null;
+      let maxCoeff = 0;
+      for (let v of nonBasic) {
+        if (dict.z[v] > maxCoeff) {
+          maxCoeff = dict.z[v];
+          entering = v;
+        }
+      }
+      
+      if (!entering) return;
+      
+      // Find leaving variable (ratio test)
+      let leaving = null;
+      let minRatio = Infinity;
+      for (let bv of basic) {
+        if (bv === 'z') continue;
+        const coeff = dict[bv][entering];
+        if (coeff < 0) {
+          const ratio = -dict[bv].const / coeff;
+          if (ratio < minRatio) {
+            minRatio = ratio;
+            leaving = bv;
+          }
+        }
+      }
+      
+      if (!leaving) return;
+      
+      // Calculate prePivotVars: entering variable gets minRatio, others stay at 0
+      const prePivotVars = {};
+      const prePivotDict = JSON.parse(JSON.stringify(dict));
+      const prePivotNonBasic = [...nonBasic];
+      const prePivotBasic = [...basic];
+      
+      nonBasic.forEach(v => {
+        prePivotVars[v] = (v === entering) ? minRatio : 0;
+      });
+      
+      // Build algebra steps
+      const algebraSteps = [];
+      algebraSteps.push(`<div class="algebra-step"><strong>Step 1: Identify pivot</strong></div>`);
+      algebraSteps.push(`<div class="algebra-step">Entering variable: <span class="highlight">${entering}</span> (largest positive coefficient in objective)</div>`);
+      algebraSteps.push(`<div class="algebra-step">Leaving variable: <span class="highlight">${leaving}</span> (minimum ratio test)</div>`);
+      algebraSteps.push(`<div class="algebra-step"><strong>Step 2: Solve pivot equation for ${entering}</strong></div>`);
+      
+      // Build current pivot equation showing ALL variables (before pivot)
+      const allVarsBeforePivot = [...nonBasic, ...basic.filter(v => v !== leaving && v !== 'z')];
+      const pivotEq = formatEquation(leaving, dict[leaving], allVarsBeforePivot);
+      algebraSteps.push(`<div class="algebra-step">Pivot row: ${pivotEq}</div>`);
+      
+      // Determine all variables that will appear on RHS after pivot (for solved equation)
+      const newNonBasicVars = nonBasic.filter(v => v !== entering).concat([leaving]);
+      
+      // Solve for entering variable
+      const pivotCoeff = dict[leaving][entering];
+      const newDict = {};
+      
+      newDict[entering] = { const: -dict[leaving].const / pivotCoeff };
+      for (let v of [...nonBasic, ...basic]) {
+        if (v === entering) continue;
+        if (v === leaving) {
+          // The leaving variable moves to RHS with coefficient 1/pivotCoeff
+          newDict[entering][v] = 1 / pivotCoeff;
+        } else {
+          newDict[entering][v] = -(dict[leaving][v] || 0) / pivotCoeff;
+        }
+      }
+      
+      // Build solved equation with alignment
+      const solvedEq = formatEquation(entering, newDict[entering], newNonBasicVars);
+      algebraSteps.push(`<div class="algebra-step"><span class="highlight">${solvedEq}</span></div>`);
+      
+      algebraSteps.push(`<div class="algebra-step"><strong>Step 3: Substitute into all other equations</strong></div>`);
+      
+      // Substitute into all other basic variables
+      for (let bv of basic) {
+        if (bv === leaving) continue;
+        
+        const oldCoeff = dict[bv][entering] || 0;
+        newDict[bv] = { const: dict[bv].const + oldCoeff * newDict[entering].const };
+        
+        for (let v of [...nonBasic, ...basic]) {
+          if (v === entering) {
+            newDict[bv][v] = 0;
+          } else {
+            newDict[bv][v] = (dict[bv][v] || 0) + oldCoeff * (newDict[entering][v] || 0);
+          }
+        }
+        
+        const newEq = formatEquation(bv, newDict[bv], newNonBasicVars);
+        algebraSteps.push(`<div class="algebra-step">${newEq}</div>`);
+      }
+      
+      // Update basis lists
+      const newNonBasic = nonBasic.filter(v => v !== entering);
+      newNonBasic.push(leaving);
+      const newBasic = basic.filter(v => v !== leaving);
+      newBasic.push(entering);
+      
+      // Get pivot equation text for animation
+      const pivotEqText = formatEquation(entering, newDict[entering], newNonBasic);
+      
+      // Show objective value tooltip and wait for it to disappear
+      await showObjectiveTooltip();
+      
+      // Animate the pivot transformation
+      await animatePivotTransformation(entering, leaving, newDict, newBasic, newNonBasic, pivotEqText);
+      
+      dict = newDict;
+      nonBasic = newNonBasic;
+      basic = newBasic;
+      
+      // Reset non-basic variables to 0
+      nonBasic.forEach(v => vars[v] = 0);
+      
+      // Show algebra
+      document.getElementById('algebra-content').innerHTML = algebraSteps.join('');
+      document.getElementById('algebra').classList.add('show');
+      
+      // Update hint
+      if (pivotCount === 0) {
+        document.getElementById('hint').innerHTML = '<strong>💡 After first pivot:</strong> Notice how the variables swapped roles! xL is now a window (basic), and w₁ is now a knob (non-basic). Keep turning knobs to reach the optimal solution.';
+      }
+      
+      pivotCount++;
+      
+      // Record new state in history
+      currentStep++;
+      history.push({
+        step: currentStep,
+        dict: JSON.parse(JSON.stringify(dict)),
+        basic: [...basic],
+        nonBasic: [...nonBasic],
+        vars: {...vars},
+        prePivotDict: prePivotDict,
+        prePivotNonBasic: prePivotNonBasic,
+        prePivotBasic: prePivotBasic,
+        prePivotVars: prePivotVars,
+        entering: entering,
+        leaving: leaving,
+        pivotEquation: formatEquation(entering, newDict[entering], newNonBasicVars),
+        possibleMoves: getPossibleMoves(),
+        parentStep: currentStep - 1
+      });
+      
+      // Update displays
+      updateDictionary();
+      rebuildControls();
+      updateDisplays();
+    }
+    
+    // Rebuild controls for new basis
+    function rebuildControls() {
+      // Clear and rebuild knobs
+      const knobsContainer = document.getElementById('knobs-container');
+      knobsContainer.innerHTML = '';
+      
+      nonBasic.forEach(v => {
+        const div = document.createElement('div');
+        div.className = 'knob-group';
+        div.innerHTML = `
+          <div class="knob" id="knob-${v}">
+            <div class="knob-indicator"></div>
+            <div class="knob-dot"></div>
+          </div>
+          <div class="knob-label">${varNames[v] || v}</div>
+          <div class="knob-value" id="value-${v}">0.0</div>
+        `;
+        knobsContainer.appendChild(div);
+      });
+      
+      // Clear and rebuild windows
+      const windowsContainer = document.getElementById('windows-container');
+      windowsContainer.innerHTML = '';
+      
+      basic.filter(v => v !== 'z').forEach(v => {
+        const div = document.createElement('div');
+        div.className = 'speedometer';
+        div.innerHTML = `
+          <div class="speedometer-label">${varNames[v] || v}</div>
+          <div class="speedometer-gauge">
+            <canvas id="gauge-${v}" width="160" height="80"></canvas>
+          </div>
+          <div class="speedometer-value" id="value-${v}">0.0</div>
+        `;
+        windowsContainer.appendChild(div);
+      });
+      
+      attachKnobListeners();
+    }
+    
+    // Attach knob listeners
+    function attachKnobListeners() {
+      nonBasic.forEach(v => {
+        const knobEl = document.getElementById(`knob-${v}`);
+        if (!knobEl) return;
+        
+        let isDragging = false;
+        let startY = 0;
+        let startValue = 0;
+        
+        const onMouseDown = (e) => {
+          if (knobEl.classList.contains('disabled')) {
+            showDisabledKnobMessage(v);
+            return;
+          }
+          isDragging = true;
+          startY = e.clientY || e.touches[0].clientY;
+          startValue = vars[v];
+          e.preventDefault();
+        };
+        
+        const onMouseMove = (e) => {
+          if (!isDragging) return;
+          const clientY = e.clientY || e.touches[0].clientY;
+          const delta = (startY - clientY) / 20;
+          let newValue = Math.max(0, startValue + delta);
+          
+          // Calculate maximum feasible value based on CURRENT state of other variables
+          let maxValue = 10;
+          for (let bv of basic) {
+            if (bv === 'z') continue;
+            const coeff = dict[bv][v];
+            if (coeff < 0) {
+              // Calculate current slack for this constraint
+              let currentSlack = dict[bv].const;
+              for (let otherVar of nonBasic) {
+                if (otherVar !== v) {
+                  currentSlack += dict[bv][otherVar] * vars[otherVar];
+                }
+              }
+              // Maximum we can increase v before this constraint is violated
+              const ratio = -currentSlack / coeff;
+              maxValue = Math.min(maxValue, ratio);
+            }
+          }
+          
+          // Clamp to feasible maximum
+          newValue = Math.min(newValue, maxValue);
+          
+          vars[v] = newValue;
+          updateDisplays();
+        };
+        
+        const onMouseUp = () => {
+          isDragging = false;
+        };
+        
+        knobEl.addEventListener('mousedown', onMouseDown);
+        knobEl.addEventListener('touchstart', onMouseDown);
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('touchmove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('touchend', onMouseUp);
+      });
+    }
+    
+    // Reset
+    function reset() {
+      dict = {
+        z: { const: 0, xC: 3, xL: 5, w1: 0, w2: 0 },
+        w1: { const: 10, xC: -1, xL: -2, w1: 0, w2: 0 },
+        w2: { const: 8, xC: -1, xL: -1, w1: 0, w2: 0 }
+      };
+      vars = { xC: 0, xL: 0, w1: 0, w2: 0 };
+      nonBasic = ['xC', 'xL'];
+      basic = ['z', 'w1', 'w2'];
+      pivotCount = 0;
+      
+      document.getElementById('algebra').classList.remove('show');
+      document.getElementById('hint').innerHTML = '<strong>💡 Try this:</strong> Turn the control knobs to see how the basic variables (speedometers) and objective (thermometer) respond. Notice which knob increases profit faster!';
+      document.getElementById('hint').style.display = 'block';
+      
+      initializeHistory();
+      
+      updateDictionary();
+      rebuildControls();
+      updateDisplays();
+    }
+    
+    // Render the navigation map
+    function renderMap() {
+      const svg = document.getElementById('map-svg');
+      const width = 1000;
+      
+      // Build complete tree including hypothetical branches - but only up to current level
+      const allNodes = [];
+      const nodeMap = new Map();
+      let nodeIdCounter = 0;
+      
+      // Recursively generate tree from a given state
+      function generateTreeFrom(parentState, parentId, level) {
+        if (level > currentStep) return []; // Don't show future levels
+        
+        const branches = [];
+        const possibleMoves = [];
+        
+        // Get possible moves from this state
+        for (let v of parentState.nonBasic) {
+          if (parentState.dict.z[v] > 0) {
+            possibleMoves.push(v);
+          }
+        }
+        
+        // Generate a branch for each possible move
+        possibleMoves.forEach(move => {
+          // Check if this is the actual chosen path
+          const actualNext = history.find(h => 
+            h.parentStep === parentState.step && 
+            h.step === level && 
+            h.entering === move
+          );
+          
+          let childState, isActual, nodeId;
+          
+          if (actualNext) {
+            // This is the actual path taken - use the stored state as-is
+            childState = actualNext;
+            isActual = true;
+            nodeId = `step-${actualNext.step}`;
+          } else {
+            // This is a hypothetical branch - calculate everything
+            const hypState = generateHypotheticalPivot(parentState, move);
+            if (!hypState) return;
+            
+            nodeId = `hyp-${nodeIdCounter++}`;
+            
+            // Calculate prePivotVars for hypothetical node
+            let maxRatio = 0;
+            const leavingCoeff = parentState.dict[hypState.leaving][hypState.entering];
+            if (leavingCoeff < 0) {
+              maxRatio = -parentState.dict[hypState.leaving].const / leavingCoeff;
+            }
+            
+            const prePivotVars = {};
+            parentState.nonBasic.forEach(v => {
+              prePivotVars[v] = (v === hypState.entering) ? maxRatio : 0;
+            });
+            
+            childState = {
+              step: level,
+              dict: hypState.dict,
+              basic: hypState.basic,
+              nonBasic: hypState.nonBasic,
+              entering: hypState.entering,
+              leaving: hypState.leaving,
+              possibleMoves: hypState.possibleMoves,
+              parentStep: parentState.step,
+              prePivotVars: prePivotVars,
+              prePivotDict: parentState.dict,
+              prePivotNonBasic: parentState.nonBasic,
+              prePivotBasic: parentState.basic
+            };
+            isActual = false;
+          }
+          
+          const node = {
+            id: nodeId,
+            step: level,
+            state: childState,
+            isActual: isActual,
+            parentId: parentId,
+            children: []
+          };
+          
+          branches.push(node);
+          allNodes.push(node);
+          nodeMap.set(node.id, node);
+          
+          // Recursively generate children (only if this level is visited)
+          if (level < currentStep) {
+            node.children = generateTreeFrom(childState, node.id, level + 1);
+          }
+        });
+        
+        return branches;
+      }
+      
+      // Start with root node (Step 0)
+      const rootState = history[0];
+      const rootNode = {
+        id: 'step-0',
+        step: 0,
+        state: rootState,
+        isActual: true,
+        parentId: null,
+        children: []
+      };
+      allNodes.push(rootNode);
+      nodeMap.set(rootNode.id, rootNode);
+      
+      // Generate tree from root (only if we've taken at least one step)
+      if (currentStep > 0) {
+        rootNode.children = generateTreeFrom(rootState, rootNode.id, 1);
+      }
+      
+      // Calculate positions
+      const levelNodes = {};
+      allNodes.forEach(node => {
+        const level = node.step;
+        if (!levelNodes[level]) levelNodes[level] = [];
+        levelNodes[level].push(node);
+      });
+      
+      const maxLevel = Math.max(...Object.keys(levelNodes).map(Number));
+      const height = Math.max(600, (maxLevel + 1) * 150);
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.innerHTML = '';
+      
+      const nodePositions = {};
+      Object.keys(levelNodes).forEach(level => {
+        const nodes = levelNodes[level];
+        const levelY = height - 80 - (parseInt(level) * 120);
+        
+        nodes.forEach((node, i) => {
+          const totalWidth = nodes.length;
+          const spacing = Math.min(180, 600 / totalWidth);
+          const x = (width / 2) + ((i - (totalWidth - 1) / 2) * spacing);
+          nodePositions[node.id] = { x, y: levelY };
+        });
+      });
+      
+      // Draw paths
+      allNodes.forEach(node => {
+        if (node.parentId) {
+          const parent = nodePositions[node.parentId];
+          const child = nodePositions[node.id];
+          
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', parent.x);
+          line.setAttribute('y1', parent.y);
+          line.setAttribute('x2', child.x);
+          line.setAttribute('y2', child.y);
+          
+          if (node.isActual) {
+            line.setAttribute('class', 'path-line');
+            line.setAttribute('stroke', '#5DCAA5');
+            line.setAttribute('stroke-width', '3');
+          } else {
+            line.setAttribute('class', 'path-branch');
+            line.setAttribute('stroke', '#85B7EB');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('stroke-dasharray', '5,5');
+          }
+          svg.appendChild(line);
+        }
+      });
+      
+      // Draw nodes
+      allNodes.forEach(node => {
+        const pos = nodePositions[node.id];
+        
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', pos.x);
+        circle.setAttribute('cy', pos.y);
+        circle.setAttribute('r', 16);
+        circle.style.cursor = 'pointer';
+        
+        if (node.isActual && node.step === currentStep) {
+          circle.setAttribute('class', 'node-circle current');
+        } else if (node.isActual && node.step < currentStep) {
+          circle.setAttribute('class', 'node-circle visited');
+        } else {
+          circle.setAttribute('class', 'node-circle future');
+        }
+        
+        circle.addEventListener('click', () => {
+          if (node.isActual) {
+            showNodeDetail(node.step);
+          } else {
+            showHypotheticalNodeDetail(node.state);
+          }
+        });
+        svg.appendChild(circle);
+        
+        // Add submarine icon to current node
+        if (node.isActual && node.step === currentStep) {
+          const submarine = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          submarine.setAttribute('transform', `translate(${pos.x - 12}, ${pos.y - 10})`);
+          
+          // Submarine body (main hull)
+          const hull = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+          hull.setAttribute('cx', '12');
+          hull.setAttribute('cy', '12');
+          hull.setAttribute('rx', '10');
+          hull.setAttribute('ry', '6');
+          hull.setAttribute('fill', '#F59E0B');
+          hull.setAttribute('stroke', '#D97706');
+          hull.setAttribute('stroke-width', '1.5');
+          submarine.appendChild(hull);
+          
+          // Conning tower
+          const tower = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          tower.setAttribute('x', '10');
+          tower.setAttribute('y', '6');
+          tower.setAttribute('width', '4');
+          tower.setAttribute('height', '4');
+          tower.setAttribute('rx', '1');
+          tower.setAttribute('fill', '#F59E0B');
+          tower.setAttribute('stroke', '#D97706');
+          tower.setAttribute('stroke-width', '1.5');
+          submarine.appendChild(tower);
+          
+          // Periscope
+          const periscope = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          periscope.setAttribute('xC', '12');
+          periscope.setAttribute('y1', '6');
+          periscope.setAttribute('xL', '12');
+          periscope.setAttribute('y2', '3');
+          periscope.setAttribute('stroke', '#D97706');
+          periscope.setAttribute('stroke-width', '1.5');
+          periscope.setAttribute('stroke-linecap', 'round');
+          submarine.appendChild(periscope);
+          
+          // Porthole (window)
+          const porthole = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          porthole.setAttribute('cx', '8');
+          porthole.setAttribute('cy', '12');
+          porthole.setAttribute('r', '2');
+          porthole.setAttribute('fill', '#FEF3C7');
+          porthole.setAttribute('stroke', '#D97706');
+          porthole.setAttribute('stroke-width', '1');
+          submarine.appendChild(porthole);
+          
+          // Propeller
+          const propeller = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          propeller.setAttribute('d', 'M 20 12 L 22 10 M 20 12 L 22 14');
+          propeller.setAttribute('stroke', '#D97706');
+          propeller.setAttribute('stroke-width', '1.5');
+          propeller.setAttribute('stroke-linecap', 'round');
+          submarine.appendChild(propeller);
+          
+          svg.appendChild(submarine);
+        }
+        
+        // Add label for entering variable on hypothetical nodes
+        if (!node.isActual && node.step > 0) {
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('x', pos.x);
+          text.setAttribute('y', pos.y - 25);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('fill', '#85B7EB');
+          text.setAttribute('font-size', '11');
+          text.setAttribute('font-weight', '600');
+          text.setAttribute('pointer-events', 'none');
+          text.textContent = node.state.entering;
+          svg.appendChild(text);
+        }
+      });
+    }
+    
+    // Show hypothetical node detail (what-if scenario)
+    function showHypotheticalNodeDetail(state) {
+      document.getElementById('node-detail-title').textContent = 
+        `Alternative Path - State reached after: Enter ${state.entering}, Leave ${state.leaving}`;
+      
+      let html = '';
+      
+      html += '<div style="padding: 1rem; background: #E6F1FB; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #378ADD;">';
+      html += '<strong>🔀 Alternative Path:</strong> This shows the state that would have been reached if <span style="color: #378ADD; font-weight: 600;">' + state.entering + '</span> had been chosen to enter the basis. All paths eventually converge to the same optimal solution.';
+      html += '</div>';
+      
+      // Dictionary at this state
+      html += '<div class="section-title">Dictionary at this state:</div>';
+      html += '<div class="dictionary" style="margin-bottom: 1.5rem;">';
+      for (let bv of state.basic) {
+        const constTerm = Math.round(state.dict[bv].const * 10) / 10;
+        let equation = `${bv} = ${constTerm}`;
+        
+        for (let nbv of state.nonBasic) {
+          const fc = formatCoeff(state.dict[bv][nbv]);
+          if (fc) {
+            equation += ` ${fc.sign} ${fc.value}${nbv}`;
+          }
+        }
+        
+        const cssClass = bv === 'z' ? 'dict-row objective' : 'dict-row';
+        html += `<div class="${cssClass}">${equation}</div>`;
+      }
+      html += '</div>';
+      
+      // Use stored prePivot data instead of looking up in history
+      // (parent might be hypothetical and not in history)
+      const prevState = {
+        dict: state.prePivotDict,
+        nonBasic: state.prePivotNonBasic,
+        basic: state.prePivotBasic
+      };
+      
+      // Calculate effects
+      const effects = {};
+      for (let bv of prevState.basic) {
+        let value = prevState.dict[bv].const;
+        for (let nbv of prevState.nonBasic) {
+          value += (prevState.dict[bv][nbv] || 0) * (state.prePivotVars[nbv] || 0);
+        }
+        effects[bv] = Math.round(value * 10) / 10;
+      }
+      
+      // Show visualizations
+      html += '<div class="section-title">Values that would reach this state:</div>';
+      html += '<div style="display: flex; gap: 2rem; justify-content: center; align-items: center; flex-wrap: wrap; margin-bottom: 2rem;">';
+      
+      // Knobs
+      html += '<div style="display: flex; gap: 1.5rem; align-items: center;">';
+      prevState.nonBasic.forEach(v => {
+        const value = state.prePivotVars[v] || 0;
+        const angle = (value / 10) * 270;
+        
+        html += `
+          <div style="text-align: center;">
+            <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">${varNames[v] || v}</div>
+            <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #f5f5f5, #e0e0e0); border: 3px solid ${v === state.entering ? '#85B7EB' : '#bbb'}; position: relative; margin: 0 auto;">
+              <div style="position: absolute; width: 4px; height: 22px; background: ${v === state.entering ? '#85B7EB' : '#378ADD'}; top: 8px; left: 28px; transform-origin: 50% 22px; border-radius: 2px; transform: rotate(${angle}deg);"></div>
+              <div style="position: absolute; width: 10px; height: 10px; background: white; border-radius: 50%; top: 25px; left: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>
+            </div>
+            <div style="font-size: 14px; font-weight: 600; color: ${v === state.entering ? '#85B7EB' : '#378ADD'}; margin-top: 4px; font-family: 'Courier New', monospace;">${value.toFixed(1)}</div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      
+      // Separator
+      html += '<div style="width: 2px; height: 60px; background: #ddd;"></div>';
+      
+      // Speedometers
+      html += '<div style="display: flex; gap: 1.5rem; align-items: center;">';
+      prevState.basic.filter(b => b !== 'z').forEach(bv => {
+        const value = effects[bv];
+        const maxVal = prevState.dict[bv].const;
+        const percent = Math.max(0, Math.min(1, value / maxVal));
+        const isLow = value < 0.5;
+        
+        html += `
+          <div style="text-align: center;">
+            <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">${varNames[bv] || bv}</div>
+            <div style="width: 70px; height: 35px; position: relative; margin: 0 auto;">
+              <svg width="70" height="35" viewBox="0 0 70 35">
+                <path d="M 5 30 A 30 30 0 0 1 65 30" fill="none" stroke="#e0e0e0" stroke-width="6"/>
+                <path d="M 5 30 A 30 30 0 0 1 ${5 + percent * 60} ${30 - Math.sin(percent * Math.PI) * 30}" fill="none" stroke="${isLow ? '#E24B4A' : '#378ADD'}" stroke-width="6"/>
+                <line xC="35" y1="30" xL="${35 + Math.cos((1 - percent) * Math.PI) * 25}" y2="${30 - Math.sin((1 - percent) * Math.PI) * 25}" stroke="#1a1a1a" stroke-width="2"/>
+                <circle cx="35" cy="30" r="3" fill="#333"/>
+              </svg>
+            </div>
+            <div style="font-size: 14px; font-weight: 600; color: ${isLow ? '#E24B4A' : '#1a1a1a'}; margin-top: 2px; font-family: 'Courier New', monospace;">${value.toFixed(1)}</div>
+          </div>
+        `;
+      });
+      html += '</div>';
+      
+      // Separator
+      html += '<div style="width: 2px; height: 60px; background: #ddd;"></div>';
+      
+      // Thermometer
+      const zValue = effects.z;
+      const zPercent = Math.max(0, Math.min(100, (zValue / MAX_Z) * 100));
+      
+      html += `
+        <div style="text-align: center;">
+          <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">Profit</div>
+          <div style="width: 35px; height: 60px; background: white; border: 2px solid #ddd; border-radius: 17px; position: relative; overflow: hidden; margin: 0 auto;">
+            <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: ${zPercent}%; background: linear-gradient(to top, #1D9E75, #5DCAA5); border-radius: 0 0 15px 15px;"></div>
+          </div>
+          <div style="font-size: 14px; font-weight: 600; color: #1D9E75; margin-top: 4px; font-family: 'Courier New', monospace;">$${Math.round(zValue)}</div>
+        </div>
+      `;
+      
+      html += '</div>';
+      
+      // Possible moves from this state
+      if (state.possibleMoves.length > 0) {
+        html += '<div style="margin-top: 2rem; padding: 1rem; background: #FEF3C7; border-radius: 8px;">';
+        html += '<strong>Possible next moves from this state:</strong> ';
+        html += state.possibleMoves.map(v => `<span style="color: #378ADD; font-weight: 600;">${v}</span>`).join(', ');
+        html += '</div>';
+      } else {
+        html += '<div style="margin-top: 2rem; padding: 1rem; background: #EAF3DE; border-radius: 8px; color: #3B6D11;">';
+        html += '<strong>✓ This path also reaches optimal solution</strong>';
+        html += '</div>';
+      }
+      
+      document.getElementById('node-detail-body').innerHTML = html;
+      document.getElementById('node-detail-modal').classList.add('show');
+    }
+    
+    // Show node detail modal
+    function showNodeDetail(stepNum) {
+      const state = history[stepNum];
+      const nextState = history[stepNum + 1];
+      
+      let html = '';
+      
+      // Step 0 is special - it's the initialization
+      if (stepNum === 0) {
+        document.getElementById('node-detail-title').textContent = 'Step 0 - Initialization';
+        
+        // Dictionary at initialization
+        html += '<div class="section-title">Initial dictionary:</div>';
+        html += '<div class="dictionary" style="margin-bottom: 1.5rem;">';
+        for (let bv of state.basic) {
+          const constTerm = Math.round(state.dict[bv].const * 10) / 10;
+          let equation = `${bv} = ${constTerm}`;
+          
+          for (let nbv of state.nonBasic) {
+            const fc = formatCoeff(state.dict[bv][nbv]);
+            if (fc) {
+              equation += ` ${fc.sign} ${fc.value}${nbv}`;
+            }
+          }
+          
+          const cssClass = bv === 'z' ? 'dict-row objective' : 'dict-row';
+          html += `<div class="${cssClass}">${equation}</div>`;
+        }
+        html += '</div>';
+        
+        // Show default values (all at 0)
+        html += '<div class="section-title">Initial state (all non-basic variables = 0):</div>';
+        html += '<div style="display: flex; gap: 2rem; justify-content: center; align-items: center; flex-wrap: wrap; margin-bottom: 2rem;">';
+        
+        // Knobs at 0
+        html += '<div style="display: flex; gap: 1.5rem; align-items: center;">';
+        state.nonBasic.forEach(v => {
+          html += `
+            <div style="text-align: center;">
+              <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">${varNames[v] || v}</div>
+              <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #f5f5f5, #e0e0e0); border: 3px solid #bbb; position: relative; margin: 0 auto;">
+                <div style="position: absolute; width: 4px; height: 22px; background: #378ADD; top: 8px; left: 28px; transform-origin: 50% 22px; border-radius: 2px; transform: rotate(0deg);"></div>
+                <div style="position: absolute; width: 10px; height: 10px; background: white; border-radius: 50%; top: 25px; left: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>
+              </div>
+              <div style="font-size: 14px; font-weight: 600; color: #378ADD; margin-top: 4px; font-family: 'Courier New', monospace;">0.0</div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        
+        // Separator
+        html += '<div style="width: 2px; height: 60px; background: #ddd;"></div>';
+        
+        // Speedometers at max
+        html += '<div style="display: flex; gap: 1.5rem; align-items: center;">';
+        state.basic.filter(b => b !== 'z').forEach(bv => {
+          const value = state.dict[bv].const;
+          
+          html += `
+            <div style="text-align: center;">
+              <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">${varNames[bv] || bv}</div>
+              <div style="width: 70px; height: 35px; position: relative; margin: 0 auto;">
+                <svg width="70" height="35" viewBox="0 0 70 35">
+                  <path d="M 5 30 A 30 30 0 0 1 65 30" fill="none" stroke="#e0e0e0" stroke-width="6"/>
+                  <path d="M 5 30 A 30 30 0 0 1 65 30" fill="none" stroke="#378ADD" stroke-width="6"/>
+                  <line xC="35" y1="30" xL="5" y2="30" stroke="#1a1a1a" stroke-width="2"/>
+                  <circle cx="35" cy="30" r="3" fill="#333"/>
+                </svg>
+              </div>
+              <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-top: 2px; font-family: 'Courier New', monospace;">${value.toFixed(1)}</div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        
+        // Separator
+        html += '<div style="width: 2px; height: 60px; background: #ddd;"></div>';
+        
+        // Thermometer at 0
+        html += `
+          <div style="text-align: center;">
+            <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">Profit</div>
+            <div style="width: 35px; height: 60px; background: white; border: 2px solid #ddd; border-radius: 17px; position: relative; overflow: hidden; margin: 0 auto;">
+              <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: linear-gradient(to top, #1D9E75, #5DCAA5); border-radius: 0 0 15px 15px;"></div>
+            </div>
+            <div style="font-size: 14px; font-weight: 600; color: #1D9E75; margin-top: 4px; font-family: 'Courier New', monospace;">$0</div>
+          </div>
+        `;
+        
+        html += '</div>';
+        
+      } else {
+        // For steps > 0: show the state reached after making a decision
+        document.getElementById('node-detail-title').textContent = 
+          `Step ${stepNum} - State reached after: Enter ${state.entering}, Leave ${state.leaving}`;
+        
+        // Dictionary at this state (after pivot)
+        html += '<div class="section-title">Dictionary at this state:</div>';
+        html += '<div class="dictionary" style="margin-bottom: 1.5rem;">';
+        for (let bv of state.basic) {
+          const constTerm = Math.round(state.dict[bv].const * 10) / 10;
+          let equation = `${bv} = ${constTerm}`;
+          
+          for (let nbv of state.nonBasic) {
+            const fc = formatCoeff(state.dict[bv][nbv]);
+            if (fc) {
+              equation += ` ${fc.sign} ${fc.value}${nbv}`;
+            }
+          }
+          
+          const cssClass = bv === 'z' ? 'dict-row objective' : 'dict-row';
+          html += `<div class="${cssClass}">${equation}</div>`;
+        }
+        html += '</div>';
+        
+        // Pivot equation
+        if (state.pivotEquation) {
+          html += '<div class="section-title">Pivot equation used to reach this state:</div>';
+          html += '<div class="dictionary" style="margin-bottom: 1.5rem;">';
+          html += `<div class="dict-row" style="color: #378ADD; font-weight: 600;">${state.pivotEquation}</div>`;
+          html += '</div>';
+        }
+        
+        // Show the values chosen to reach this state
+        html += '<div class="section-title">Values chosen to reach this state:</div>';
+        html += '<div style="display: flex; gap: 2rem; justify-content: center; align-items: center; flex-wrap: wrap; margin-bottom: 2rem;">';
+        
+        // Calculate effects using PREVIOUS state's dictionary and this state's prePivotVars
+        const prevState = history[state.parentStep];
+        
+        // Ensure prePivotVars exists
+        if (!state.prePivotVars) {
+          state.prePivotVars = {};
+          prevState.nonBasic.forEach(v => {
+            state.prePivotVars[v] = 0;
+          });
+        }
+        
+        const effects = {};
+        for (let bv of prevState.basic) {
+          let value = prevState.dict[bv].const;
+          for (let nbv of prevState.nonBasic) {
+            value += (prevState.dict[bv][nbv] || 0) * (state.prePivotVars[nbv] || 0);
+          }
+          effects[bv] = Math.round(value * 10) / 10;
+        }
+        
+        // Knobs (at chosen positions)
+        html += '<div style="display: flex; gap: 1.5rem; align-items: center;">';
+        prevState.nonBasic.forEach(v => {
+          const value = state.prePivotVars[v] || 0;
+          const angle = (value / 10) * 270;
+          
+          html += `
+            <div style="text-align: center;">
+              <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">${varNames[v] || v}</div>
+              <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #f5f5f5, #e0e0e0); border: 3px solid ${v === state.entering ? '#F59E0B' : '#bbb'}; position: relative; margin: 0 auto;">
+                <div style="position: absolute; width: 4px; height: 22px; background: ${v === state.entering ? '#F59E0B' : '#378ADD'}; top: 8px; left: 28px; transform-origin: 50% 22px; border-radius: 2px; transform: rotate(${angle}deg);"></div>
+                <div style="position: absolute; width: 10px; height: 10px; background: white; border-radius: 50%; top: 25px; left: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>
+              </div>
+              <div style="font-size: 14px; font-weight: 600; color: ${v === state.entering ? '#F59E0B' : '#378ADD'}; margin-top: 4px; font-family: 'Courier New', monospace;">${value.toFixed(1)}</div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        
+        // Separator
+        html += '<div style="width: 2px; height: 60px; background: #ddd;"></div>';
+        
+        // Speedometers
+        html += '<div style="display: flex; gap: 1.5rem; align-items: center;">';
+        prevState.basic.filter(b => b !== 'z').forEach(bv => {
+          const value = effects[bv];
+          const maxVal = prevState.dict[bv].const;
+          const percent = Math.max(0, Math.min(1, value / maxVal));
+          const isLow = value < 0.5;
+          
+          html += `
+            <div style="text-align: center;">
+              <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">${varNames[bv] || bv}</div>
+              <div style="width: 70px; height: 35px; position: relative; margin: 0 auto;">
+                <svg width="70" height="35" viewBox="0 0 70 35">
+                  <path d="M 5 30 A 30 30 0 0 1 65 30" fill="none" stroke="#e0e0e0" stroke-width="6"/>
+                  <path d="M 5 30 A 30 30 0 0 1 ${5 + percent * 60} ${30 - Math.sin(percent * Math.PI) * 30}" fill="none" stroke="${isLow ? '#E24B4A' : '#378ADD'}" stroke-width="6"/>
+                  <line xC="35" y1="30" xL="${35 + Math.cos((1 - percent) * Math.PI) * 25}" y2="${30 - Math.sin((1 - percent) * Math.PI) * 25}" stroke="#1a1a1a" stroke-width="2"/>
+                  <circle cx="35" cy="30" r="3" fill="#333"/>
+                </svg>
+              </div>
+              <div style="font-size: 14px; font-weight: 600; color: ${isLow ? '#E24B4A' : '#1a1a1a'}; margin-top: 2px; font-family: 'Courier New', monospace;">${value.toFixed(1)}</div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        
+        // Separator
+        html += '<div style="width: 2px; height: 60px; background: #ddd;"></div>';
+        
+        // Thermometer
+        const zValue = effects.z;
+        const zPercent = Math.max(0, Math.min(100, (zValue / MAX_Z) * 100));
+        
+        html += `
+          <div style="text-align: center;">
+            <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">Profit</div>
+            <div style="width: 35px; height: 60px; background: white; border: 2px solid #ddd; border-radius: 17px; position: relative; overflow: hidden; margin: 0 auto;">
+              <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: ${zPercent}%; background: linear-gradient(to top, #1D9E75, #5DCAA5); border-radius: 0 0 15px 15px;"></div>
+            </div>
+            <div style="font-size: 14px; font-weight: 600; color: #1D9E75; margin-top: 4px; font-family: 'Courier New', monospace;">$${Math.round(zValue)}</div>
+          </div>
+        `;
+        
+        html += '</div>';
+      }
+      
+      // Possible moves from this state
+      if (state.possibleMoves.length > 0) {
+        html += '<div style="margin-top: 2rem; padding: 1rem; background: #FEF3C7; border-radius: 8px;">';
+        html += '<strong>Possible next moves from this state:</strong> ';
+        html += state.possibleMoves.map(v => `<span style="color: #378ADD; font-weight: 600;">${v}</span>`).join(', ');
+        html += '</div>';
+      } else {
+        html += '<div style="margin-top: 2rem; padding: 1rem; background: #EAF3DE; border-radius: 8px; color: #3B6D11;">';
+        html += '<strong>✓ Optimal solution - no improving moves available</strong>';
+        html += '</div>';
+      }
+      
+      document.getElementById('node-detail-body').innerHTML = html;
+      document.getElementById('node-detail-modal').classList.add('show');
+    }
+    
+    // Map modal controls
+    document.getElementById('map-icon').addEventListener('click', () => {
+      renderMap();
+      document.getElementById('map-modal').classList.add('show');
+    });
+    
+    document.getElementById('close-map').addEventListener('click', () => {
+      document.getElementById('map-modal').classList.remove('show');
+    });
+    
+    document.getElementById('close-node-detail').addEventListener('click', () => {
+      document.getElementById('node-detail-modal').classList.remove('show');
+    });
+    
+    // Close modals on background click
+    document.getElementById('map-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'map-modal') {
+        document.getElementById('map-modal').classList.remove('show');
+      }
+    });
+    
+    document.getElementById('node-detail-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'node-detail-modal') {
+        document.getElementById('node-detail-modal').classList.remove('show');
+      }
+    });
+    
+    // Initialize
+    document.getElementById('pivot-btn').addEventListener('click', performPivot);
+    document.getElementById('reset-btn').addEventListener('click', reset);
+    
+    initializeHistory();
+    updateDictionary();
+    rebuildControls();
+    updateDisplays();
+  </script>
+</body>
+</html>
